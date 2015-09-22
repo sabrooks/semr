@@ -1,0 +1,19 @@
+---
+title: "output-cumsum"
+author: "Steve Brooks"
+date: "August 28, 2015"
+output: html_document
+---
+
+```{r}
+library(dplyr)
+library(ggplot2)
+load("~/R/sem/data/tac_ww.rda")
+```
+
+```{r}
+tac_ww%>%
+  lm(energy ~ influent, data = .)%>%
+  stat_cumsum(tac_ww, .)
+```
+

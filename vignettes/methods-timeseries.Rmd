@@ -1,0 +1,49 @@
+---
+title: "Time Series"
+author: "Steve Brooks"
+date: "August 8, 2015"
+output: html_document
+---
+
+#Time Series
+Include a production lag term.  A lag in production may be the result of delay between the start and end of the process.
+
+```{r, echo=FALSE, warning=FALSE, include=TRUE, prompt=FALSE, message=FALSE}
+library(dplyr)
+library(ggplot2)
+library(broom)
+library(knitr)
+library(tidyr)
+load("~/R/sem/data/pt_period.rda")
+load("~/R/sem/data/wx_KPSC.rda")
+```
+
+```{r, echo=FALSE, warning= FALSE, include=FALSE, message=FALSE}
+# make CDD dataframe
+pt_join <- pt_period%>%
+  dplyr::inner_join(wx_KPSC)
+```
+```{r}
+# Model with production lag
+lag <- pt_join%>%
+  filter(.performance)%>%
+  mutate(yesterday = lag(prod))%>%
+  lm(energy ~ prod + yesterday + CDD_30, .)
+
+# Model without production lag
+no_lag <- pt_join%>%
+  filter(.performance)%>%
+  lm(energy ~ prod + CDD_30, .)
+
+# Bind for comparison
+bind_rows(lag%>%
+            glance()%>%
+            mutate(production = "lag"),
+          no_lag%>%
+            glance()%>%
+            mutate(production = "no lag"))%>%
+  dplyr::select(production, r.squared, AIC)%>%
+  knitr::kable()
+```
+
+Adding the previous day improves R-squared slightly, but improvement may not be worth the cost of adding the feature (AIC) decreases.  

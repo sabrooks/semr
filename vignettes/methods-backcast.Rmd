@@ -1,0 +1,70 @@
+---
+title: "Back Casting"
+author: "Steve Brooks"
+date: "August 8, 2015"
+output: html_document
+---
+
+With the benefit of data collected during implementation and a hopefully more tightly controlled system
+
+Compare baseline model to basecast model.
+```{r, echo=FALSE, warning=FALSE}
+library(dplyr)
+library(ggplot2)
+library(broom)
+library(knitr)
+library(tidyr)
+load("~/R/sem/data/pt_period.rda")
+load("~/R/sem/data/wx_KPSC.rda")
+```
+
+```{r, echo=FALSE}
+# make CDD dataframe
+pt_join <- pt_period%>%
+  dplyr::inner_join(wx_KPSC)
+```
+
+```{r}
+#Forecast
+lm_for <- pt_join%>%
+  filter(.baseline)%>%
+  lm(energy ~ prod + CDD_30, data = .)
+
+# Backcast
+lm_back <- pt_join%>%
+  filter(.performance)%>%
+  lm(energy ~ prod + CDD_30, data = .)
+
+# Bind for comparison
+bind_rows(lm_for%>%
+            glance()%>%
+            mutate(model = "Forecast"),
+          lm_back%>%
+            glance()%>%
+            mutate(model = "Backcast"))%>%
+  kable()
+```
+
+
+
+## Compare Models
+```{r}
+# Data a dataframe of Confidence Intervals around parameter estimates
+params <- bind_rows(lm_for%>%
+            confint()%>%
+            as.data.frame(., rownames = rownames(.))%>%
+            add_rownames(var = "parameter")%>%
+            mutate(model = "Forecast"),
+          lm_back%>%
+            confint()%>%
+            as.data.frame(., rownames = rownames(.))%>%
+            add_rownames(var = "parameter")%>%
+            mutate(model = "Backcast"))
+
+# Plot the possible range of each parameter of each model 
+params%>%
+  gather(level, value, `2.5 %`:`97.5 %`)%>%
+  ggplot(aes(x = value, y = model, color = model))+
+  facet_grid(.~ parameter , scales = "free")+
+  geom_line()
+```

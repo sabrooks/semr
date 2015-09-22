@@ -1,0 +1,156 @@
+---
+title: "Diagnostics"
+author: "Steve Brooks"
+date: "August 3, 2015"
+output: html_document
+---
+
+```{r, echo=FALSE, warning=FALSE, include=FALSE}
+library(dplyr)
+library(broom)
+library(ggplot2)
+library(lubridate)
+library(nlme)
+library(sem)
+
+load("~/R/sem/data/pt_period.rda")
+load("~/R/sem/data/milk.rda")
+load("~/R/sem/data/wx_KPSC.rda")
+
+pt_join <- pt_period%>%
+  dplyr::inner_join(wx_KPSC)
+
+```
+Energy models need to be checked for autocorrelation and consistency over production and temperature variables.
+Fit a model predicting Energy with Tave and Production as the predictor 
+```{r}
+lm <- pt_period%>%
+  lm(energy ~ t_ave + prod, data = .)
+
+lm%>%glance()%>%knitr::kable()
+```
+
+# Residuals
+## Autocorrelation of residuals
+## Error Assumptions - normally distributed
+
+```{r}
+lm_df <- lm%>%
+  augment()
+
+lm_df%>%
+  dplyr::select(.resid)%>%
+  mutate(.resid_lag = lag(.resid))%>%
+  na.omit()%>%
+  ggplot2::ggplot(aes(x = .resid, y = .resid_lag))+
+  geom_point(alpha = 0.1)
+  
+```
+
+The model displays significant auto-correlation.  
+
+### Lag Term
+One option was to include the lagging production term.  Adding the lag production term does not reduce autocorrelation
+
+```{r}
+lm <- pt_period%>%
+  mutate(lag_prod = lag(prod),
+         lag2_prod = lag(lag_prod),
+         lead_prod = lead(prod),
+         lag_temp = lag(t_ave))%>%
+  lm(energy ~ t_ave + lag_temp + prod + lag_prod + lag2_prod + lead_prod, data = .)
+
+lm_df <- lm%>%
+  augment()
+
+lm_df%>%
+  dplyr::select(.resid)%>%
+  mutate(.resid_lag = lag(.resid))%>%
+  na.omit()%>%
+  ggplot2::ggplot(aes(x = .resid, y = .resid_lag))+
+  geom_point(alpha = 0.1)
+```
+
+
+### Weekly Model
+A weekly model __improves__ the model by __increasing__ the r-squared and __reducing__ the autocorrelation of the residuals.
+
+```{r}
+lm <- pt_period%>%
+  mutate(wk_yr = paste(week(date), "-", year(date)))%>%
+  group_by(wk_yr)%>%
+  dplyr::summarise_each(funs(sum), -date, -.baseline, -.performance)%>%
+  mutate(lag_prod = lag(prod))%>%
+  lm(energy ~ t_ave + prod + lag_prod, data = .)
+
+lm%>%
+  glance()%>%
+  knitr::kable()
+
+lm_df <- lm%>%
+  augment()
+
+lm_df%>%
+  dplyr::select(.resid)%>%
+  mutate(.resid_lag = lag(.resid))%>%
+  na.omit()%>%
+  ggplot2::ggplot(aes(x = .resid, y = .resid_lag))+
+  geom_point(alpha = 0.1)
+```
+
+
+## Model 2
+Model 2 
+
+```{r}
+milk%>%
+  filter(.baseline)%>%
+  do(broom::augment(lm(energy ~ . - date, data = .)))%>%
+  mutate(.resid_lag = lag(.resid))%>% # Check Autocorrelation of the Residuals
+  ggplot2::ggplot(aes(x = .resid, y = .resid_lag))+
+  geom_point(alpha = 0.2)
+
+```
+
+## Checking Model Errors (residual)
+
+```{r}
+model <- pt_join%>%
+  filter(.baseline)%>%
+  lm(energy ~ CDD_30 + prod, data = .)%>%
+  augment()
+
+# Energy vs. Residuals + Fitted Line
+model%>%
+  ggplot(aes(x = energy, y = .resid))+
+  geom_point(alpha = 0.1)+
+  geom_smooth()+
+  theme_light()
+
+# Production vs. Residuals + Fitted line
+model%>%
+  ggplot(aes(x = prod, y = .resid))+
+  geom_point(alpha = 0.1)+
+  geom_smooth()+
+  theme_light()
+
+# Production vs. Residuals + Fitted line
+model%>%
+  ggplot(aes(x = CDD_30, y = .resid))+
+  geom_point(alpha = 0.1)+
+  geom_smooth()+
+  theme_light()
+```
+
+# Generalized Least Squares
+
+
+
+```{r}
+glmod <- tac_ww%>%
+  mutate(nobs = dplyr::row_number(date))%>%
+  na.omit()%>%
+  gls(energy ~ influent, correlation = corAR1(form = ~ nobs),
+             data = .)
+```
+

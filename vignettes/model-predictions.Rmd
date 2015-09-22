@@ -1,0 +1,41 @@
+---
+title: "Prediction"
+author: "Steve Brooks"
+date: "August 7, 2015"
+output: html_document
+---
+
+```{r, echo=FALSE, warning=FALSE, include=FALSE}
+library(dplyr)
+library(broom)
+library(ggplot2)
+load("~/R/sem/data/pt_period.rda")
+```
+Fit a model using _baseline data_ to predict Energy with Tave and Production as the predictor.
+```{r}
+lm <- pt_period%>%
+  filter(.baseline)%>%
+  lm(energy ~ t_ave + prod, data = .)
+```
+# Predictions
+Use the baseline model to predict energy
+```{r}
+predict_lm <- predict(lm, new = pt_period, interval = "prediction")%>%
+  as.data.frame()%>%
+  bind_cols(pt_period)
+# Plot "Cum Sum" Result
+predict_lm%>%
+  mutate(upper.bound = ifelse(.performance, upr-energy, 0),
+         lower.bound = ifelse(.performance, lwr-energy, 0),
+         savings = ifelse(.performance, fit - energy, 0))%>%
+  transmute(date =date,
+            upper = cumsum(upper.bound),
+            lower = cumsum(lower.bound),
+            cumsum = cumsum(savings))%>%
+  ggplot2::ggplot(aes(x = date))+
+  geom_ribbon(aes(ymin = lower, ymax = upper ))+
+  geom_line(aes(y = cumsum))
+
+```
+
+

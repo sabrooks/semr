@@ -1,0 +1,40 @@
+---
+title: "Production"
+author: "Steve Brooks"
+date: "August 13, 2015"
+output: html_document
+---
+
+## Single vs. Multiple Production Indicators
+```{r, echo=FALSE, warning=FALSE, include=TRUE, prompt=FALSE, message=FALSE}
+library(dplyr)
+library(ggplot2)
+library(broom)
+library(knitr)
+library(tidyr)
+ load("~/R/sem/data/milk.rda")
+```
+
+# Relationship between production indicators
+```{r}
+milk%>%
+   ggplot(aes(x = prod_conv, y = prod_csls))+
+   geom_point(alpha = 0.2)
+```
+
+
+```{r}
+# 2 Variables
+milk%>%
+  filter(.baseline)%>%
+  lm(energy ~ . - date, data = .)%>%
+  broom::glance()
+# Single Variable (Sum)
+milk%>%
+  filter(.baseline)%>%
+  mutate(prod = prod_conv + prod_csls)%>%
+  select(- prod_conv, - prod_csls)%>%
+  lm(energy ~ . - date, data = .)%>%
+  broom::glance()
+```
+

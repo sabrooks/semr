@@ -1,0 +1,61 @@
+---
+title: "Lead/Lag Dataframes"
+author: "Steve Brooks"
+date: "`r Sys.Date()`"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Vignette Title}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+```{r, echo=FALSE, message=FALSE}
+library(dplyr)
+library(lubridate)
+library(sem)
+df <- data.frame(days = floor_date(now(), "day") + days(1:5),
+                 var1 = 2:6,
+                 var2 = rnorm(5))
+```
+
+## Lead/Lag
+Production, processing, can take longer than the data interval.  For example, daily data for a process with a three-day processing time.  The daily input or output influences energy consumption on days before (output) or after (input).  The `lag_df` and `lead_df` functions are utilities for easily leading or lagging the dataframe.  
+
+- __Lag__ the dataframe.  Suitable for _input_ production variables when the processing period is longer than the data interval.
+- __Lead__ the dataframe.  Suitable for _output_ production variables when the processing period is longer than the data interval.
+
+
+### Lag
+
+#### Basic
+
+```{r}
+df%>%lag_df(days)%>%
+  knitr::kable()
+```
+
+#### Depth of delay
+
+The `nrows` variable sets the depth of the lag or lead.  The default sets nrows to 1.
+
+```{r}
+lag_df(df, days, nrows = 2)%>%
+  knitr::kable()
+```
+
+#### Append
+By default, the lagged or lead columns are appended to the orginial dataframe.  Just the lagged or lead column can be returned by setting append to FALSE.
+
+```{r}
+lag_df(df, days, append = FALSE)%>%
+  knitr::kable()
+```
+
+
+### Lead
+
+```{r}
+df%>%lead_df(days)%>%
+  knitr::kable()
+```
+
+

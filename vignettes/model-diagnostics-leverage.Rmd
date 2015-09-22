@@ -1,0 +1,53 @@
+---
+title: "Leverage"
+author: "Steve Brooks"
+date: "August 17, 2015"
+output: html_document
+---
+```{r}
+library(dplyr)
+library(ggplot2)
+library(broom)
+library(knitr)
+library(tidyr)
+load("~/R/sem/data/pt_period.rda")
+load("~/R/sem/data/wx_KPSC.rda")
+
+# make CDD dataframe
+pt_join <- pt_period%>%
+  dplyr::inner_join(wx_KPSC)
+```
+
+
+```{r}
+
+model <- pt_join%>%
+  filter(.baseline)%>%
+  lm(energy ~ CDD_30 + prod, data = .)%>%
+  augment()
+
+model%>%
+  ggplot2::ggplot(aes(x = energy, y = .fitted))+
+  geom_point()
+
+model%>%
+  ggplot(aes(x = energy, y = .resid))+
+  geom_point(alpha = 0.1)+
+  geom_smooth()+
+  theme_light()
+
+```
+
+```{r}
+tac_ww%>%
+  lm(energy ~ influent, .)%>%
+  geom_hqnorm(label = 2)
+
+```
+
+```{r}
+tac_ww%>%
+  lm(energy ~ influent, .)%>%
+  table_leverage(tac_ww)
+```
+

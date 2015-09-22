@@ -1,0 +1,50 @@
+---
+title: "Data Format"
+author: "Steve Brooks"
+date: "August 2, 2015"
+output: html_document
+---
+# Model Factors
+Important factors for energy management include:
+
+* Data Interval
+* Date Period
+* Intervention
+  * Behvaior Based
+  * Custom Projects
+
+
+# Performance Periods
+Use a indicator variables to designate the start and end of baseline and performance periods.
+
+```{r, echo=FALSE, warning=FALSE, include=FALSE}
+library(dplyr)
+load("~/R/sem/data/prod_temp.rda")
+```
+```{r}
+start <- prod_temp%>%attr("action_item_start")
+performance <- prod_temp%>%attr("performance_start")
+pt_period <-prod_temp%>%
+  mutate(.baseline = ifelse(date < start, TRUE, FALSE),
+         .performance = ifelse(date > performance, TRUE, FALSE))
+
+pt_period%>%
+  head()%>%
+  knitr::kable()
+```
+
+# Calculating the start and end of each period
+The start and end of each period can be calculated from the table
+
+```{r}
+pt_period%>%
+  tidyr::gather(period, active,.baseline:.performance)%>%
+  filter(active)%>%
+  group_by(period)%>%
+  summarise(start = min(date),
+            end = max(date))%>%
+  knitr::kable()
+```
+
+# Weather Data
+Weather files - wx

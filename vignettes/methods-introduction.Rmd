@@ -1,0 +1,83 @@
+---
+title: "Methods - Introduction"
+author: "Steve Brooks"
+date: "August 22, 2015"
+output: html_document
+---
+
+```{r, echo=FALSE, warning=FALSE}
+library(dplyr)
+library(ggplot2)
+library(broom)
+library(knitr)
+library(tidyr)
+library(ggthemes)
+library(lubridate)
+load("~/R/sem/data/pt_period.rda")
+load("~/R/sem/data/wx_KPSC.rda")
+load("~/R/sem/data/paper.rda")
+
+# make CDD dataframe
+pt_join <- pt_period%>%
+  dplyr::inner_join(wx_KPSC)
+```
+
+There are four main methods for developing an energy model.
+
+* __Forecasting__
+* __Pooled Model__
+* __Back Casting__
+* __Chaining__
+
+# Forcasting
+
+* Fit a model using baseline period data
+* Use baseline model to predict energy during performance period
+
+```{r}
+# Fit linear model with baseline data
+lm_base <- paper%>%
+  filter(.baseline)%>% # Filters to baseline period
+  lm(energy ~ prod , data = .)
+
+lm_base%>%
+  glance()
+```
+
+```{r}
+# Predict energy performance
+predict <- predict(lm_base, new = paper, interval = "prediction")%>%
+  as.data.frame()%>%
+  bind_cols(paper)
+```
+
+```{r}
+baseline_end <- paper%>%
+  filter(!.baseline)%>%
+  arrange(date)%>%
+  dplyr::first()%>%
+  min()
+
+predict%>%
+  mutate(.resid = energy - fit,
+         yr = (date - baseline_end)%/%dyears(1))%>% # Calculate Difference
+  dplyr::select(yr, .resid, date)%>%
+  group_by(yr)%>%
+  na.omit()%>%
+  mutate(cumsum = cumsum(.resid),
+         save = ifelse(cumsum < 0, TRUE, FALSE),
+         period = (date - (baseline_end + years(yr)))/dyears(1))%>%
+  ggplot(aes(x = period, y = cumsum, fill =save))+
+  geom_area()+
+  geom_line(size = 0.2)+
+  facet_grid(yr ~.)+
+  theme(axis.ticks.x = element_blank(),
+        panel.background = element_blank(),
+        axis.line.x = element_line(color = "black",
+                                   size = 1,
+                                   linetype = 2,
+                                   lineend = 0),
+        axis.text = element_text(color = "#777777"))
+  
+  
+```

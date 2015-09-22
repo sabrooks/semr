@@ -1,0 +1,58 @@
+---
+title: "Weather"
+author: "Steve Brooks"
+date: "August 8, 2015"
+output: html_document
+---
+
+#Compare Tave and CDD
+CDD - transition point is 30 degrees.  Tave and CDD are related, but not equal
+```{r, echo=FALSE, warning=FALSE, include=FALSE}
+library(dplyr)
+library(ggplot2)
+library(broom)
+library(knitr)
+load("~/R/sem/data/pt_period.rda")
+load("~/R/sem/data/wx_KPSC.rda")
+```
+```{r}
+pt_join <- pt_period%>%
+  dplyr::inner_join(wx_KPSC)
+#plot t_ave vs. CDD
+pt_join%>%
+  ggplot2::ggplot(aes(x = t_ave, y = CDD_30))+
+  geom_point()
+```
+
+Fit two models; one using t_ave, the other using CDD.  Compare the results.
+```{r}
+# Fit with t_ave
+lm_tave <- pt_join%>%
+  filter(.baseline)%>%
+  lm(energy ~ prod + t_ave, data = .)
+
+# Fit with CDD
+lm_cdd <- pt_join%>%
+  filter(.baseline)%>%
+  lm(energy ~ prod + CDD_30, data = .)
+
+# Bind for comparison
+bind_rows(lm_tave%>%
+            glance()%>%
+            mutate(temp = "t_ave"),
+          lm_cdd%>%
+            glance()%>%
+            mutate(temp = "CDD_30"))%>%
+  kable()
+  
+```
+
+# Model Changes
+How does the change from Tave to CDD change parameter specification
+```{r}
+bind_rows(lm_tave%>%
+            tidy(),
+          lm_cdd%>%
+            tidy())
+```
+
